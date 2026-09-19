@@ -1,8 +1,7 @@
 import axios from 'axios';
 
-const HOST = window.location.hostname;
-const API_URL = `http://${HOST}:5001/api/notes`;
-const CATEGORY_URL = `http://${HOST}:5001/api/categories`;
+const API_URL = 'https://shiro-ai-taking-app.onrender.com/api/notes';
+const CATEGORY_URL = 'https://shiro-ai-taking-app.onrender.com/api/categories';
 
 export const getNotes = () => axios.get(API_URL);
 export const createNote = (formData) => axios.post(API_URL, formData, {

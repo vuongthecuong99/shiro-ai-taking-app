@@ -332,8 +332,7 @@ const handleCreate = async (e) => {
                     {note.images.map((img, i) => (
                     <img
                       key={i}
-                      src={`http://${window.location.hostname}:5001${img}`}
-                      alt=""
+                      src={`https://shiro-ai-taking-app.onrender.com${img}`}
                       style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 6 }}
                     />
                   ))}
