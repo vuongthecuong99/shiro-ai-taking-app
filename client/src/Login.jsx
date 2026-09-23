@@ -24,6 +24,7 @@ function Login({ onLogin }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f5c518' }}>
       <form onSubmit={handleSubmit} style={{ background: 'white', padding: 40, borderRadius: 10, width: 320 }}>
+        <img src="/shiro-ai-taking-app/icon-192.png" alt="Shiro Notes" style={{ width: 80, height: 80, display: 'block', margin: '0 auto 15px auto', borderRadius: 12 }} />
         <h2 style={{ marginTop: 0, color: 'black' }}>{isRegister ? 'Sign Up' : 'Log In'}</h2>
         {error && <p style={{ color: 'red' }}>{error}</p>}
         <input
