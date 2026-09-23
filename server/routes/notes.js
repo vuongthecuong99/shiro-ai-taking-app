@@ -170,7 +170,7 @@ router.post('/', upload.array('images', 5), async (req, res) => {
       data.category = data.category.charAt(0).toUpperCase() + data.category.slice(1).toLowerCase();
     }
     if (req.files && req.files.length > 0) {
-      data.images = req.files.map(f => `/uploads/${f.filename}`);
+      data.images = req.files.map(f => f.path);
     }
     const note = new Note(data);
     await note.save();
