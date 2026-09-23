@@ -148,15 +148,22 @@ const handleCreate = async (e) => {
 
   const pageStyle = {
     display: 'flex',
-    minHeight: '100vh',
+    height: '100dvh',
+    overflow: 'hidden',
     fontFamily: 'sans-serif',
     background: '#fff',
     color: '#000'
   };
   const sidebarStyle = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
     width: 150,
+    height: '100dvh',
+    overflowY: 'auto',
     borderRight: '1px solid #333',
     padding: 20,
+    boxSizing: 'border-box',
     flexShrink: 0,
     background: '#f5c518',
     color: '#000',
@@ -175,6 +182,9 @@ const handleCreate = async (e) => {
   });
   const mainStyle = {
     flex: 1,
+    height: '100dvh',
+    overflowY: 'auto',
+    marginLeft: 150,
     padding: 30,
     maxWidth: 700,
     background: '#fff',
