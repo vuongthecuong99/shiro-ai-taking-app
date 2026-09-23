@@ -186,7 +186,6 @@ const handleCreate = async (e) => {
     overflowY: 'auto',
     marginLeft: 150,
     padding: 30,
-    maxWidth: 700,
     background: '#fff',
     color: '#000'
   };
