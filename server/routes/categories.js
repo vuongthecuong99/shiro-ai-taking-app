@@ -3,6 +3,7 @@ const router = express.Router();
 const Category = require('../models/Category');
 const Note = require('../models/Note');
 const auth = require('../middleware/auth');
+const mongoose = require('mongoose');
 
 router.use(auth);
 
@@ -28,7 +29,7 @@ router.get('/', async (req, res) => {
   try {
     const categories = await Category.find({ user: req.userId }).sort({ name: 1 });
     const counts = await Note.aggregate([
-      { $match: { user: req.userId } },
+      { $match: { user: new mongoose.Types.ObjectId(req.userId) } },
       { $group: { _id: '$category', count: { $sum: 1 } } }
     ]);
     const countMap = {};
