@@ -77,13 +77,15 @@ const handleUpdate = async (id) => {
     }
   }, [activeCategory]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
       return;
     }
     const timer = setTimeout(async () => {
-      const res = await getNotes();
+      const res = activeCategory
+        ? await getNotesByCategory(activeCategory)
+        : await getNotes();
       const q = searchQuery.toLowerCase();
       setSearchResults(
         res.data.filter(
@@ -94,7 +96,7 @@ const handleUpdate = async (id) => {
       );
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, activeCategory]);
 
 const handleCreate = async (e) => {
   e.preventDefault();
