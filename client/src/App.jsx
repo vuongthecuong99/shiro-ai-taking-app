@@ -20,6 +20,8 @@ function App() {
   const [editContent, setEditContent] = useState('');
   const [expandedNotes, setExpandedNotes] = useState({});
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
 
   const handleLogout = () => {
@@ -74,6 +76,25 @@ const handleUpdate = async (id) => {
       setAddingNote(false);
     }
   }, [activeCategory]);
+
+    useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      const res = await getNotes();
+      const q = searchQuery.toLowerCase();
+      setSearchResults(
+        res.data.filter(
+          (n) =>
+            n.title.toLowerCase().includes(q) ||
+            n.content.toLowerCase().includes(q)
+        )
+      );
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
 const handleCreate = async (e) => {
   e.preventDefault();
@@ -169,6 +190,9 @@ const handleCreate = async (e) => {
   return <Login onLogin={() => setIsLoggedIn(true)} />;
   }
 
+  const isSearching = searchQuery.trim().length > 0;
+  const displayedNotes = isSearching ? searchResults : notes;
+
   return (
     <div style={pageStyle}>
       {/* SIDEBAR */}
@@ -212,8 +236,15 @@ const handleCreate = async (e) => {
 
       {/* MAIN CONTENT */}
       <div style={mainStyle}>
+        <input
+          type="text"
+          placeholder="Search all notes..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{ display: 'block', width: '100%', padding: 8, marginBottom: 20, borderRadius: 6, border: '1px solid #ccc', boxSizing: 'border-box' }}
+        />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h1 style={{ margin: 0, color: '#000' }}>{activeCategory ? activeCategory : 'All Notes'}</h1>
+          <h1 style={{ margin: 0, color: '#000' }}>{isSearching ? `Results for "${searchQuery}"` : (activeCategory ? activeCategory : 'All Notes')}</h1>
           <div style={{ display: 'flex', gap: 8 }}>
             {activeCategory && notes.length > 0 && (
               <button onClick={() => setStudyingAlbum(true)} style={{ fontSize: 15, padding: '2px 6px', background: '#151df5', color: '#f7f4f4', border: 'none', borderRadius: 4 }}>Study All</button>
@@ -301,15 +332,19 @@ const handleCreate = async (e) => {
           </form>
         )}
 
-        {!activeCategory && (
+        {!activeCategory && !isSearching && (
           <p style={{ color: '#888', marginBottom: 20 }}>
             Select an album on the left to add a note into it.
           </p>
         )}
 
-        {notes.length === 0 && <p style={{ color: '#888' }}>No notes here yet.</p>}
+        {displayedNotes.length === 0 && (
+          <p style={{ color: '#888' }}>
+            {isSearching ? 'No notes match your search.' : 'No notes here yet.'}
+          </p>
+        )}
 
-        {notes.map((note) => (
+        {displayedNotes.map((note) => (
           <div key={note._id} style={{ border: '1px solid #444', padding: 15, marginBottom: 10, borderRadius: 6, textAlign: 'left' }}>
             {editingNote === note._id ? (
               <div>
