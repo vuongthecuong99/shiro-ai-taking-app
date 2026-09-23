@@ -6,6 +6,7 @@ const noteSchema = new mongoose.Schema({
   category: { type: String, default: 'Uncategorized', trim: true },
   tags: { type: [String], default: [] },
   summary: { type: String, default: '' },
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   images: { type: [String], default: [] }
 }, { timestamps: true });
 

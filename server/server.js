@@ -13,6 +13,7 @@ app.use(express.json());
 
 app.use('/api/notes', noteRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/auth', require('./routes/auth'));
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB connected'))

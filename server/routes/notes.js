@@ -3,6 +3,9 @@ const router = express.Router();
 const Note = require('../models/Note');
 const { summarize, generateTags, generateQuiz, generateFlashcards, generateKeyTerms } = require('../services/openaiService');
 const upload = require('../middleware/upload');
+const auth = require('../middleware/auth');
+
+router.use(auth);
 
 // Generate summary from arbitrary text (used for "Study All")
 router.post('/generate/summary', async (req, res) => {
@@ -40,10 +43,11 @@ router.post('/generate/flashcards', async (req, res) => {
   }
 });
 
-// Get all notes (optionally filtered by category)
+// Get all notes (optionally filtered by category), only this user's notes
 router.get('/', async (req, res) => {
   try {
-    const filter = req.query.category ? { category: req.query.category } : {};
+    const filter = { user: req.userId };
+    if (req.query.category) filter.category = req.query.category;
     const notes = await Note.find(filter).sort({ updatedAt: -1 });
     res.json(notes);
   } catch (err) {
@@ -51,20 +55,26 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Update a note
+// Update a note (only if it belongs to this user)
 router.put('/:id', async (req, res) => {
   try {
-    const note = await Note.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const note = await Note.findOneAndUpdate(
+      { _id: req.params.id, user: req.userId },
+      req.body,
+      { new: true }
+    );
+    if (!note) return res.status(404).json({ error: 'Note not found' });
     res.json(note);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-// Delete a note
+// Delete a note (only if it belongs to this user)
 router.delete('/:id', async (req, res) => {
   try {
-    await Note.findByIdAndDelete(req.params.id);
+    const note = await Note.findOneAndDelete({ _id: req.params.id, user: req.userId });
+    if (!note) return res.status(404).json({ error: 'Note not found' });
     res.json({ message: 'Note deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -74,7 +84,7 @@ router.delete('/:id', async (req, res) => {
 // Summarize a note
 router.post('/:id/summarize', async (req, res) => {
   try {
-    const note = await Note.findById(req.params.id);
+    const note = await Note.findOne({ _id: req.params.id, user: req.userId });
     if (!note) return res.status(404).json({ error: 'Note not found' });
 
     const summary = await summarize(note.content, note.images);
@@ -90,7 +100,7 @@ router.post('/:id/summarize', async (req, res) => {
 // Generate tags for a note
 router.post('/:id/tags', async (req, res) => {
   try {
-    const note = await Note.findById(req.params.id);
+    const note = await Note.findOne({ _id: req.params.id, user: req.userId });
     if (!note) return res.status(404).json({ error: 'Note not found' });
 
     const tags = await generateTags(note.content, note.images);
@@ -106,7 +116,7 @@ router.post('/:id/tags', async (req, res) => {
 // Generate quiz for a note
 router.post('/:id/quiz', async (req, res) => {
   try {
-    const note = await Note.findById(req.params.id);
+    const note = await Note.findOne({ _id: req.params.id, user: req.userId });
     if (!note) return res.status(404).json({ error: 'Note not found' });
     const quiz = await generateQuiz(note.content, note.images);
     res.json({ quiz });
@@ -118,7 +128,7 @@ router.post('/:id/quiz', async (req, res) => {
 // Generate flashcards for a note
 router.post('/:id/flashcards', async (req, res) => {
   try {
-    const note = await Note.findById(req.params.id);
+    const note = await Note.findOne({ _id: req.params.id, user: req.userId });
     if (!note) return res.status(404).json({ error: 'Note not found' });
     const flashcards = await generateFlashcards(note.content, note.images);
     res.json({ flashcards });
@@ -130,14 +140,14 @@ router.post('/:id/flashcards', async (req, res) => {
 // Generate key terms for a note
 router.post('/:id/keyterms', async (req, res) => {
   try {
-    const note = await Note.findById(req.params.id);
+    const note = await Note.findOne({ _id: req.params.id, user: req.userId });
     if (!note) return res.status(404).json({ error: 'Note not found' });
     const keyTerms = await generateKeyTerms(note.content, note.images);
     res.json({ keyTerms });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-}); 
+});
 
 // Generate key terms from arbitrary text
 router.post('/generate/keyterms', async (req, res) => {
@@ -154,7 +164,7 @@ router.post('/generate/keyterms', async (req, res) => {
 // Create a note with image uploads
 router.post('/', upload.array('images', 5), async (req, res) => {
   try {
-    const data = { ...req.body };
+    const data = { ...req.body, user: req.userId };
     if (data.category) {
       data.category = data.category.trim();
       data.category = data.category.charAt(0).toUpperCase() + data.category.slice(1).toLowerCase();

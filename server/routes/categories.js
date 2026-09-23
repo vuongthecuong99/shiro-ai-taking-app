@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const Category = require('../models/Category');
 const Note = require('../models/Note');
+const auth = require('../middleware/auth');
+
+router.use(auth);
 
 // Create a new category
 router.post('/', async (req, res) => {
@@ -9,10 +12,10 @@ router.post('/', async (req, res) => {
     let name = req.body.name.trim();
     name = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
 
-    const existing = await Category.findOne({ name });
+    const existing = await Category.findOne({ name, user: req.userId });
     if (existing) return res.status(400).json({ error: 'Category already exists' });
 
-    const category = new Category({ name });
+    const category = new Category({ name, user: req.userId });
     await category.save();
     res.status(201).json(category);
   } catch (err) {
@@ -23,8 +26,9 @@ router.post('/', async (req, res) => {
 // Get all categories with note counts
 router.get('/', async (req, res) => {
   try {
-    const categories = await Category.find().sort({ name: 1 });
+    const categories = await Category.find({ user: req.userId }).sort({ name: 1 });
     const counts = await Note.aggregate([
+      { $match: { user: req.userId } },
       { $group: { _id: '$category', count: { $sum: 1 } } }
     ]);
     const countMap = {};
@@ -46,8 +50,8 @@ router.delete('/:name', async (req, res) => {
   try {
     const name = req.params.name;
 
-    await Note.updateMany({ category: name }, { category: 'Uncategorized' });
-    await Category.findOneAndDelete({ name });
+    await Note.updateMany({ category: name, user: req.userId }, { category: 'Uncategorized' });
+    await Category.findOneAndDelete({ name, user: req.userId });
 
     res.json({ message: 'Category deleted, notes moved to Uncategorized' });
   } catch (err) {
