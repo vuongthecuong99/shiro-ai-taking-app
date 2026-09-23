@@ -136,7 +136,9 @@ const handleCreate = async (e) => {
     padding: 20,
     flexShrink: 0,
     background: '#f5c518',
-    color: '#000'
+    color: '#000',
+    display: 'flex',
+    flexDirection: 'column'
   };
   const albumItemStyle = (active) => ({
     padding: '10px 12px',
@@ -175,7 +177,6 @@ const handleCreate = async (e) => {
           <h2 style={{ fontSize: 18, margin: 0, color: '#000' }}>Shiro Notes</h2>
           <button onClick={() => setAddingCategory(!addingCategory)} style={{ fontSize: 15, padding: '2px 6px', background: '#129542', color: '#f7f4f4', border: 'none', borderRadius: 4 }} >+</button>
         </div>
-        <button onClick={handleLogout} style={{ width: '100%', fontSize: 13, padding: '4px 6px', background: '#444', color: '#fff', border: 'none', borderRadius: 4, marginBottom: 15, cursor: 'pointer' }}>Log Out</button>
 
         {addingCategory && (
           <form onSubmit={handleAddCategory} style={{ marginBottom: 15 }}>
@@ -206,6 +207,7 @@ const handleCreate = async (e) => {
             </span>
           </div>
         ))}
+        <button onClick={handleLogout} style={{ width: '100%', fontSize: 13, padding: '4px 6px', background: '#444', color: '#fff', border: 'none', borderRadius: 4, marginTop: 'auto', cursor: 'pointer' }}>Log Out</button>
       </div>
 
       {/* MAIN CONTENT */}
