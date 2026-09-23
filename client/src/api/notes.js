@@ -1,7 +1,21 @@
 import axios from 'axios';
 
-const API_URL = 'https://shiro-ai-taking-app.onrender.com/api/notes';
-const CATEGORY_URL = 'https://shiro-ai-taking-app.onrender.com/api/categories';
+const BASE_URL = 'https://shiro-ai-taking-app.onrender.com';
+const API_URL = `${BASE_URL}/api/notes`;
+const CATEGORY_URL = `${BASE_URL}/api/categories`;
+const AUTH_URL = `${BASE_URL}/api/auth`;
+
+// Attach the login token to every request automatically
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export const register = (email, password) => axios.post(`${AUTH_URL}/register`, { email, password });
+export const login = (email, password) => axios.post(`${AUTH_URL}/login`, { email, password });
 
 export const getNotes = () => axios.get(API_URL);
 export const createNote = (formData) => axios.post(API_URL, formData, {
@@ -27,4 +41,3 @@ export const generateFlashcardsFromText = (text) => axios.post(`${API_URL}/gener
 
 export const generateKeyTermsForNote = (id) => axios.post(`${API_URL}/${id}/keyterms`);
 export const generateKeyTermsFromText = (text) => axios.post(`${API_URL}/generate/keyterms`, { text });
-

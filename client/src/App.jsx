@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { getNotes, createNote, updateNote, deleteNote, getCategories, getNotesByCategory, createCategory, deleteCategory } from './api/notes';
 import StudyModal from './StudyModal';
 import AlbumStudyModal from './AlbumStudyModal';
+import Login from './Login';
 
 function App() {
   const [notes, setNotes] = useState([]);
@@ -19,6 +20,13 @@ function App() {
   const [editContent, setEditContent] = useState('');
   const [expandedNotes, setExpandedNotes] = useState({});
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('email');
+    setIsLoggedIn(false);
+  };
 
   const toggleExpand = (id) => {
     setExpandedNotes(prev => ({ ...prev, [id]: !prev[id] }));
@@ -54,13 +62,17 @@ const handleUpdate = async (id) => {
 };
 
   useEffect(() => {
-    loadCategories();
-    loadNotes(activeCategory);
-  }, []);
+    if (isLoggedIn) {
+      loadCategories();
+      loadNotes(activeCategory);
+    }
+  }, [isLoggedIn]);
 
   useEffect(() => {
-    loadNotes(activeCategory);
-    setAddingNote(false);
+    if (isLoggedIn) {
+      loadNotes(activeCategory);
+      setAddingNote(false);
+    }
   }, [activeCategory]);
 
 const handleCreate = async (e) => {
@@ -151,6 +163,10 @@ const handleCreate = async (e) => {
     borderRadius: 6
   };
 
+  if (!isLoggedIn) {
+  return <Login onLogin={() => setIsLoggedIn(true)} />;
+  }
+
   return (
     <div style={pageStyle}>
       {/* SIDEBAR */}
@@ -159,6 +175,7 @@ const handleCreate = async (e) => {
           <h2 style={{ fontSize: 18, margin: 0, color: '#000' }}>Shiro Notes</h2>
           <button onClick={() => setAddingCategory(!addingCategory)} style={{ fontSize: 15, padding: '2px 6px', background: '#129542', color: '#f7f4f4', border: 'none', borderRadius: 4 }} >+</button>
         </div>
+        <button onClick={handleLogout} style={{ width: '100%', fontSize: 13, padding: '4px 6px', background: '#444', color: '#fff', border: 'none', borderRadius: 4, marginBottom: 15, cursor: 'pointer' }}>Log Out</button>
 
         {addingCategory && (
           <form onSubmit={handleAddCategory} style={{ marginBottom: 15 }}>
