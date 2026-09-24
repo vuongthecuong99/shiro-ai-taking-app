@@ -28,6 +28,7 @@ function App() {
   // ---- Mobile responsive state ----
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [mobilePane, setMobilePane] = useState('albums'); // 'albums' | 'notes' | 'detail'
+  const [editingAlbums, setEditingAlbums] = useState(false); // "Edit" mode toggle for album list
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -64,13 +65,11 @@ function App() {
     setEditContent('');
   };
 
-  // Select an album/category; on mobile, also move to the notes pane
   const selectCategory = (catId) => {
     setActiveCategory(catId);
     if (isMobile) setMobilePane('notes');
   };
 
-  // Open a note for viewing/editing; on mobile, also move to the detail pane
   const openNote = (note) => {
     setSelectedNoteId(note._id);
     startEdit(note);
@@ -204,10 +203,10 @@ function App() {
     ...columnBase,
     width: isMobile ? '100%' : 170,
     flexShrink: 0,
-    borderRight: isMobile ? 'none' : '1px solid #333',
-    padding: 20,
-    background: '#f5c518',
-    color: '#000',
+    borderRight: 'none',
+    padding: 0,
+    background: '#1c1c1e',
+    color: '#fff',
     display: 'flex',
     flexDirection: 'column'
   };
@@ -241,16 +240,30 @@ function App() {
     marginBottom: 14
   };
 
-  const albumItemStyle = (active) => ({
-    padding: '10px 12px',
-    borderRadius: 6,
-    cursor: 'pointer',
-    marginBottom: 6,
-    background: active ? '#f3eeee' : 'transparent',
+  const albumRowStyle = {
     display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  });
+    alignItems: 'center',
+    padding: '12px 16px',
+    borderBottom: '1px solid #2c2c2e',
+    cursor: 'pointer',
+    color: '#fff'
+  };
+
+  const albumDeleteBtnStyle = {
+    width: 22,
+    height: 22,
+    minWidth: 22,
+    borderRadius: 11,
+    background: '#ff3b30',
+    color: '#fff',
+    border: 'none',
+    fontSize: 16,
+    lineHeight: '20px',
+    textAlign: 'center',
+    marginRight: 12,
+    cursor: 'pointer',
+    padding: 0
+  };
 
   if (!isLoggedIn) {
     return <Login onLogin={() => setIsLoggedIn(true)} />;
@@ -267,13 +280,11 @@ function App() {
     });
   };
 
+  // Always show the clock time in the note list row; the group header
+  // ("Today" / "Yesterday" / date) already tells you which day it is.
   const formatTime = (dateStr) => {
     const d = new Date(dateStr);
-    const now = new Date();
-    const isToday = d.toDateString() === now.toDateString();
-    return isToday
-      ? d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-      : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   };
 
   const getPreview = (text) => {
@@ -314,29 +325,43 @@ function App() {
       {/* COLUMN 1: ALBUMS */}
       {showAlbums && (
         <div style={albumColStyle}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
-            <h2 style={{ fontSize: 18, margin: 0, color: '#000' }}>Shiro Notes</h2>
-            <button onClick={() => setAddingCategory(!addingCategory)} style={{ fontSize: 15, padding: '2px 6px', background: '#129542', color: '#f7f4f4', border: 'none', borderRadius: 4 }} >+</button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 16px 12px', borderBottom: '1px solid #2c2c2e' }}>
+            <div style={{ width: 50 }} />
+            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: '#fff' }}>Shiro Notes</h2>
+            <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+              <button onClick={() => setAddingCategory(!addingCategory)} style={{ background: 'none', border: 'none', color: '#f5c518', fontSize: 20, cursor: 'pointer', padding: 0 }}>＋</button>
+              <button onClick={() => setEditingAlbums(!editingAlbums)} style={{ background: 'none', border: 'none', color: '#f5c518', fontSize: 15, cursor: 'pointer', padding: 0 }}>{editingAlbums ? 'Done' : 'Edit'}</button>
+            </div>
           </div>
+
           {addingCategory && (
-            <form onSubmit={handleAddCategory} style={{ marginBottom: 15 }}>
+            <form onSubmit={handleAddCategory} style={{ marginBottom: 15, padding: '15px 16px 0' }}>
               <input type="text" placeholder="New album name" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} autoFocus style={{ width: '100%', padding: 6, marginBottom: 5, boxSizing: 'border-box' }} />
               <button type="submit" style={{ width: '100%' }}>Create</button>
             </form>
           )}
-          <div style={albumItemStyle(activeCategory === null)} onClick={() => selectCategory(null)}>
-            <span>All Notes</span>
+
+          <div onClick={() => selectCategory(null)} style={albumRowStyle}>
+            <span style={{ fontSize: 20, marginRight: 12 }}>🗒️</span>
+            <span style={{ flex: 1 }}>All Notes</span>
+            <span style={{ color: '#8e8e93', fontSize: 17 }}>›</span>
           </div>
+
           {categories.map((c) => (
-            <div key={c._id} style={albumItemStyle(activeCategory === c._id)} onClick={() => selectCategory(c._id)}>
-              <span>{c._id}</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ color: '#888' }}>{c.count}</span>
-                <button onClick={(e) => handleDeleteCategory(c._id, e)} style={{ fontSize: 12, padding: '2px 6px', background: '#f40c0c', color: '#f7f4f4', border: 'none', borderRadius: 4 }}>✕</button>
-              </span>
+            <div key={c._id} onClick={() => selectCategory(c._id)} style={albumRowStyle}>
+              {editingAlbums && (
+                <button onClick={(e) => handleDeleteCategory(c._id, e)} style={albumDeleteBtnStyle}>−</button>
+              )}
+              <span style={{ fontSize: 20, marginRight: 12 }}>📁</span>
+              <span style={{ flex: 1 }}>{c._id}</span>
+              <span style={{ color: '#8e8e93', marginRight: 6 }}>{c.count}</span>
+              {!editingAlbums && <span style={{ color: '#8e8e93', fontSize: 17 }}>›</span>}
             </div>
           ))}
-          <button onClick={handleLogout} style={{ width: '100%', fontSize: 13, padding: '4px 6px', background: '#444', color: '#fff', border: 'none', borderRadius: 4, marginTop: 'auto', cursor: 'pointer' }}>Log Out</button>
+
+          <div style={{ padding: 16, marginTop: 'auto' }}>
+            <button onClick={handleLogout} style={{ width: '100%', fontSize: 13, padding: '4px 6px', background: '#444', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Log Out</button>
+          </div>
         </div>
       )}
 
@@ -415,6 +440,7 @@ function App() {
             <div>
               {editingNote === selectedNote._id ? (
                 <div>
+                  <p style={{ margin: '0 0 8px 0', fontSize: 12, color: '#888' }}>{formatNoteDate(selectedNote.createdAt)}</p>
                   <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} style={{ display: 'block', width: '100%', marginBottom: 8, padding: 8, borderRadius: 6, boxSizing: 'border-box', background: '#fff', color: '#000', border: 'none', outline: 'none', fontSize: 22, fontWeight: 'bold' }} />
                   <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={4} style={{ display: 'block', width: '100%', marginBottom: 8, padding: 8, borderRadius: 6, boxSizing: 'border-box', minHeight: 300, resize: 'vertical', background: '#fff', color: '#000', border: 'none', outline: 'none', fontSize: 15, fontFamily: 'inherit' }} />
                   {selectedNote.images && selectedNote.images.length > 0 && (
@@ -425,8 +451,8 @@ function App() {
                 </div>
               ) : (
                 <div>
-                  <h2 style={{ margin: '0 0 4px 0', color: '#000' }}>{selectedNote.title}</h2>
-                  <p style={{ margin: '0 0 16px 0', fontSize: 12, color: '#888' }}>{formatNoteDate(selectedNote.createdAt)}</p>
+                  <p style={{ margin: '0 0 4px 0', fontSize: 12, color: '#888' }}>{formatNoteDate(selectedNote.createdAt)}</p>
+                  <h2 style={{ margin: '0 0 16px 0', color: '#000' }}>{selectedNote.title}</h2>
                   <p style={{ margin: '0 0 16px 0', whiteSpace: 'pre-wrap' }}>{selectedNote.content}</p>
                   {selectedNote.images && selectedNote.images.length > 0 && (
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
