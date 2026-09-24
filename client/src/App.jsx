@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getNotes, createNote, updateNote, deleteNote, getCategories, getNotesByCategory, createCategory, deleteCategory } from './api/notes';
 import StudyModal from './StudyModal';
 import AlbumStudyModal from './AlbumStudyModal';
@@ -18,20 +18,17 @@ function App() {
   const [editingNote, setEditingNote] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
-  const [expandedNotes, setExpandedNotes] = useState({});
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [selectedNoteId, setSelectedNoteId] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
+  const skipAutosave = useRef(true);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('email');
     setIsLoggedIn(false);
-  };
-
-  const toggleExpand = (id) => {
-    setExpandedNotes(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const loadCategories = async () => {
@@ -45,23 +42,17 @@ function App() {
   };
 
   const startEdit = (note) => {
-  setEditingNote(note._id);
-  setEditTitle(note.title);
-  setEditContent(note.content);
-};
+    skipAutosave.current = true;
+    setEditingNote(note._id);
+    setEditTitle(note.title);
+    setEditContent(note.content);
+  };
 
-const cancelEdit = () => {
-  setEditingNote(null);
-  setEditTitle('');
-  setEditContent('');
-};
-
-const handleUpdate = async (id) => {
-  await updateNote(id, { title: editTitle, content: editContent });
-  cancelEdit();
-  loadCategories();
-  loadNotes(activeCategory);
-};
+  const cancelEdit = () => {
+    setEditingNote(null);
+    setEditTitle('');
+    setEditContent('');
+  };
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -74,8 +65,24 @@ const handleUpdate = async (id) => {
     if (isLoggedIn) {
       loadNotes(activeCategory);
       setAddingNote(false);
+      setSelectedNoteId(null);
+      setEditingNote(null);
     }
   }, [activeCategory]);
+
+  useEffect(() => {
+    if (!editingNote) return;
+    if (skipAutosave.current) {
+      skipAutosave.current = false;
+      return;
+    }
+    const timer = setTimeout(async () => {
+      await updateNote(editingNote, { title: editTitle, content: editContent });
+      loadCategories();
+      loadNotes(activeCategory);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [editTitle, editContent]);
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -98,27 +105,31 @@ const handleUpdate = async (id) => {
     return () => clearTimeout(timer);
   }, [searchQuery, activeCategory]);
 
-const handleCreate = async (e) => {
-  e.preventDefault();
-  if (!title || !content || !activeCategory) return;
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (!title || !content || !activeCategory) return;
 
-  const formData = new FormData();
-  formData.append('title', title);
-  formData.append('content', content);
-  formData.append('category', activeCategory);
-  selectedFiles.forEach(file => formData.append('images', file));
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('content', content);
+    formData.append('category', activeCategory);
+    selectedFiles.forEach(file => formData.append('images', file));
 
-  await createNote(formData);
-  setTitle('');
-  setContent('');
-  setSelectedFiles([]);
-  setAddingNote(false);
-  loadCategories();
-  loadNotes(activeCategory);
-};
+    const res = await createNote(formData);
+    setTitle('');
+    setContent('');
+    setSelectedFiles([]);
+    setAddingNote(false);
+    loadCategories();
+    await loadNotes(activeCategory);
+    if (res && res.data && res.data._id) {
+      setSelectedNoteId(res.data._id);
+    }
+  };
 
   const handleDelete = async (id) => {
     await deleteNote(id);
+    if (selectedNoteId === id) setSelectedNoteId(null);
     loadCategories();
     loadNotes(activeCategory);
   };
@@ -154,22 +165,43 @@ const handleCreate = async (e) => {
     background: '#fff',
     color: '#000'
   };
-  const sidebarStyle = {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    width: 150,
-    height: '100dvh',
-    overflowY: 'auto',
+
+  const columnBase = {
+    height: '100%',
+    boxSizing: 'border-box',
+    overflowY: 'auto'
+  };
+
+  const albumColStyle = {
+    ...columnBase,
+    width: 170,
+    flexShrink: 0,
     borderRight: '1px solid #333',
     padding: 20,
-    boxSizing: 'border-box',
-    flexShrink: 0,
     background: '#f5c518',
     color: '#000',
     display: 'flex',
     flexDirection: 'column'
   };
+
+  const listColStyle = {
+    ...columnBase,
+    width: 300,
+    flexShrink: 0,
+    borderRight: '1px solid #ddd',
+    padding: 20,
+    background: '#f7f7f7',
+    color: '#000'
+  };
+
+  const detailColStyle = {
+    ...columnBase,
+    flex: 1,
+    padding: 30,
+    background: '#fff',
+    color: '#000'
+  };
+
   const albumItemStyle = (active) => ({
     padding: '10px 12px',
     borderRadius: 6,
@@ -180,34 +212,69 @@ const handleCreate = async (e) => {
     justifyContent: 'space-between',
     alignItems: 'center'
   });
-  const mainStyle = {
-    flex: 1,
-    height: '100dvh',
-    overflowY: 'auto',
-    marginLeft: 150,
-    padding: 30,
-    background: '#fff',
-    color: '#000'
-  };
-  const roundBtnStyle = {
-    cursor: 'pointer',
-    fontWeight: 'bold',
-    width: 28,
-    height: 28,
-    borderRadius: 6
-  };
 
   if (!isLoggedIn) {
-  return <Login onLogin={() => setIsLoggedIn(true)} />;
+    return <Login onLogin={() => setIsLoggedIn(true)} />;
   }
 
   const isSearching = searchQuery.trim().length > 0;
   const displayedNotes = isSearching ? searchResults : notes;
+  const selectedNote = displayedNotes.find((n) => n._id === selectedNoteId) || null;
+
+  const formatNoteDate = (dateStr) => {
+    const d = new Date(dateStr);
+    return d.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  };
+
+  const formatTime = (dateStr) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    return isToday
+      ? d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+      : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  };
+
+  const getPreview = (text) => {
+    const clean = (text || '').replace(/\s+/g, ' ').trim();
+    return clean.length > 40 ? clean.slice(0, 40) + '…' : clean;
+  };
+
+  const getDateGroup = (dateStr) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const dayDiff = Math.floor((startOfDay(now) - startOfDay(d)) / (1000 * 60 * 60 * 24));
+
+    if (dayDiff === 0) return 'Today';
+    if (dayDiff === 1) return 'Yesterday';
+    if (dayDiff <= 7) return 'Previous 7 Days';
+    if (dayDiff <= 30) return 'Previous 30 Days';
+    return d.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+  };
+
+  const groupOrder = ['Today', 'Yesterday', 'Previous 7 Days', 'Previous 30 Days'];
+  const groupedNotes = {};
+  displayedNotes.forEach((note) => {
+    const group = getDateGroup(note.createdAt);
+    if (!groupedNotes[group]) groupedNotes[group] = [];
+    groupedNotes[group].push(note);
+  });
+  const orderedGroupNames = [
+    ...groupOrder.filter((g) => groupedNotes[g]),
+    ...Object.keys(groupedNotes).filter((g) => !groupOrder.includes(g))
+  ];
 
   return (
     <div style={pageStyle}>
-      {/* SIDEBAR */}
-      <div style={sidebarStyle}>
+      {/* COLUMN 1: ALBUMS */}
+      <div style={albumColStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
           <h2 style={{ fontSize: 18, margin: 0, color: '#000' }}>Shiro Notes</h2>
           <button onClick={() => setAddingCategory(!addingCategory)} style={{ fontSize: 15, padding: '2px 6px', background: '#129542', color: '#f7f4f4', border: 'none', borderRadius: 4 }} >+</button>
@@ -221,7 +288,7 @@ const handleCreate = async (e) => {
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
               autoFocus
-              style={{ width: '100%', padding: 6, marginBottom: 5 }}
+              style={{ width: '100%', padding: 6, marginBottom: 5, boxSizing: 'border-box' }}
             />
             <button type="submit" style={{ width: '100%' }}>Create</button>
           </form>
@@ -242,30 +309,102 @@ const handleCreate = async (e) => {
             </span>
           </div>
         ))}
+
         <button onClick={handleLogout} style={{ width: '100%', fontSize: 13, padding: '4px 6px', background: '#444', color: '#fff', border: 'none', borderRadius: 4, marginTop: 'auto', cursor: 'pointer' }}>Log Out</button>
       </div>
 
-      {/* MAIN CONTENT */}
-      <div style={mainStyle}>
+      {/* COLUMN 2: NOTE LIST */}
+      <div style={listColStyle}>
+        <div style={{ marginBottom: 12 }}>
+          <h2 style={{ margin: '0 0 2px 0', fontSize: 20, color: '#000' }}>
+            {isSearching ? `Results for "${searchQuery}"` : (activeCategory ? activeCategory : 'All Notes')}
+          </h2>
+          <p style={{ margin: 0, fontSize: 12, color: '#888' }}>{displayedNotes.length} note{displayedNotes.length !== 1 ? 's' : ''}</p>
+        </div>
+
         <input
           type="text"
           placeholder="Search all notes..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ display: 'block', width: '100%', padding: 8, marginBottom: 20, borderRadius: 6, border: '1px solid #ccc', boxSizing: 'border-box' }}
+          style={{ display: 'block', width: '100%', padding: 8, marginBottom: 12, borderRadius: 6, border: '1px solid #ccc', boxSizing: 'border-box' }}
         />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h1 style={{ margin: 0, color: '#000' }}>{isSearching ? `Results for "${searchQuery}"` : (activeCategory ? activeCategory : 'All Notes')}</h1>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {activeCategory && notes.length > 0 && (
-              <button onClick={() => setStudyingAlbum(true)} style={{ fontSize: 15, padding: '2px 6px', background: '#151df5', color: '#f7f4f4', border: 'none', borderRadius: 4 }}>Study All</button>
+
+        {activeCategory && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <button onClick={() => setAddingNote(!addingNote)} style={{ fontSize: 13, padding: '4px 8px', background: '#129542', color: '#f7f4f4', border: 'none', borderRadius: 4, cursor: 'pointer' }}>+ New Note</button>
+            {notes.length > 0 && (
+              <button onClick={() => setStudyingAlbum(true)} style={{ fontSize: 13, padding: '4px 8px', background: '#151df5', color: '#f7f4f4', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Study All</button>
             )}
-            {activeCategory && (
-              <button onClick={() => setAddingNote(!addingNote)} style={{ fontSize: 15, padding: '2px 6px', background: '#129542', color: '#f7f4f4', border: 'none', borderRadius: 4 }}>+</button>
-           )}
-        </div>
+          </div>
+        )}
+
+        {!activeCategory && !isSearching && (
+          <p style={{ color: '#888', fontSize: 13, marginBottom: 12 }}>
+            Select an album, or view all notes here.
+          </p>
+        )}
+
+        {displayedNotes.length === 0 && (
+          <p style={{ color: '#888', fontSize: 13 }}>
+            {isSearching ? 'No notes match your search.' : 'No notes here yet.'}
+          </p>
+        )}
+
+        {orderedGroupNames.map((groupName) => (
+          <div key={groupName}>
+            <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, margin: '14px 0 6px' }}>
+              {groupName}
+            </div>
+            {groupedNotes[groupName].map((note) => (
+              <div
+                key={note._id}
+                onClick={() => {
+                  setSelectedNoteId(note._id);
+                  startEdit(note);
+                }}
+                style={{
+                  padding: '10px 10px',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  marginBottom: 6,
+                  background: selectedNoteId === note._id ? '#e6e6e6' : '#fff',
+                  border: '1px solid #e0e0e0'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ fontWeight: 'bold', fontSize: 14, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+                    {note.title}
+                  </div>
+                  <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginLeft: 6 }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setStudyNote(note); }}
+                      title="Study"
+                      style={{ fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
+                    >📖</button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(note._id); }}
+                      title="Delete"
+                      style={{ fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
+                    >🗑️</button>
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {formatTime(note.createdAt)}{'  '}{getPreview(note.content)}
+                </div>
+                {!activeCategory && (
+                  <div style={{ fontSize: 11, color: '#999', marginTop: 3 }}>
+                    📁 {note.category}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
 
+      {/* COLUMN 3: NOTE DETAIL */}
+      <div style={detailColStyle}>
         {addingNote && activeCategory && (
           <form onSubmit={handleCreate} style={{ marginBottom: 30 }}>
             <input
@@ -274,33 +413,33 @@ const handleCreate = async (e) => {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               autoFocus
-              style={{ display: 'block', width: '100%', marginBottom: 10, padding: 8 }}
+              style={{ display: 'block', width: '100%', marginBottom: 10, padding: 8, boxSizing: 'border-box' }}
             />
             <textarea
               placeholder="Write your note..."
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={4}
-              style={{ display: 'block', width: '100%', marginBottom: 10, padding: 8 }}
+              style={{ display: 'block', width: '100%', marginBottom: 10, padding: 8, boxSizing: 'border-box' }}
             />
-            
+
             <label
               htmlFor="photo-upload"
               style={{
-              display: 'inline-block',
-              width: 120,
-              textAlign: 'center',
-              padding: '4px 10px',
-              fontSize: 14,
-              background: '#444',
-              color: '#fff',
-              borderRadius: 6,
-              cursor: 'pointer',
-              marginBottom: 10,
-              marginRight: 20
-            }}
+                display: 'inline-block',
+                width: 120,
+                textAlign: 'center',
+                padding: '4px 10px',
+                fontSize: 14,
+                background: '#444',
+                color: '#fff',
+                borderRadius: 6,
+                cursor: 'pointer',
+                marginBottom: 10,
+                marginRight: 20
+              }}
             >
-            Uploads Photo
+              Uploads Photo
             </label>
             <input
               id="photo-upload"
@@ -324,95 +463,81 @@ const handleCreate = async (e) => {
                       style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 6 }}
                     />
                   ))}
+                </div>
               </div>
-            </div>
-          )}
-            <button 
-            type="submit" 
-            style={{ 
-              width: 120,
-              textAlign: 'center',
-              fontSize: 14, 
-              padding: '4px 10px', 
-              background: '#129542', 
-              color: '#f7f4f4', 
-              border: 'none', 
-              borderRadius: 6 }} 
-              >Add Note
-              </button>
+            )}
+            <button
+              type="submit"
+              style={{
+                width: 120,
+                textAlign: 'center',
+                fontSize: 14,
+                padding: '4px 10px',
+                background: '#129542',
+                color: '#f7f4f4',
+                border: 'none',
+                borderRadius: 6
+              }}
+            >Add Note
+            </button>
           </form>
         )}
 
-        {!activeCategory && !isSearching && (
-          <p style={{ color: '#888', marginBottom: 20 }}>
-            Select an album on the left to add a note into it.
-          </p>
-        )}
-
-        {displayedNotes.length === 0 && (
-          <p style={{ color: '#888' }}>
-            {isSearching ? 'No notes match your search.' : 'No notes here yet.'}
-          </p>
-        )}
-
-        {displayedNotes.map((note) => (
-          <div key={note._id} style={{ border: '1px solid #444', padding: 15, marginBottom: 10, borderRadius: 6, textAlign: 'left' }}>
-            {editingNote === note._id ? (
+        {!addingNote && selectedNote && (
+          <div>
+            {editingNote === selectedNote._id ? (
               <div>
                 <input
                   type="text"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  style={{ display: 'block', width: '100%', marginBottom: 8, padding: 8, borderRadius: 6, boxSizing: 'border-box' }}
+                  style={{ display: 'block', width: '100%', marginBottom: 8, padding: 8, borderRadius: 6, boxSizing: 'border-box', background: '#fff', color: '#000', border: 'none', outline: 'none', fontSize: 22, fontWeight: 'bold' }}
                 />
                 <textarea
                   value={editContent}
                   onChange={(e) => setEditContent(e.target.value)}
                   rows={4}
-                  style={{ display: 'block', width: '100%', marginBottom: 8, padding: 8, borderRadius: 6, boxSizing: 'border-box', minHeight: 500, resize: 'vertical' }}
+                  style={{ display: 'block', width: '100%', marginBottom: 8, padding: 8, borderRadius: 6, boxSizing: 'border-box', minHeight: 300, resize: 'vertical', background: '#fff', color: '#000', border: 'none', outline: 'none', fontSize: 15, fontFamily: 'inherit' }}
                 />
-                <div style={{ display: 'flex', gap: 16 }}>
-                  <button onClick={() => handleUpdate(note._id)}>Save</button>
-                  <button onClick={cancelEdit}>Cancel</button>
-                </div>
+                {selectedNote.images && selectedNote.images.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                    {selectedNote.images.map((img, i) => (
+                      <img
+                        key={i}
+                        src={img}
+                        style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 6 }}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <div>
-                <h3 style={{ margin: '0 0 8px 0' }}>{note.title}</h3>
-                <p style={{
-                  margin: '0 0 8px 0',
-                  whiteSpace: 'pre-wrap',
-                  maxHeight: expandedNotes[note._id] ? 'none' : 20,
-                  overflow: 'hidden'
-                }}>{note.content}</p>
-                <button
-                  onClick={() => toggleExpand(note._id)}
-                  style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', padding: 0, marginBottom: 12, textDecoration: 'underline' }}
-                >
-                  {expandedNotes[note._id] ? 'Show less' : 'Show more'}
-                </button>
+                <h2 style={{ margin: '0 0 4px 0', color: '#000' }}>{selectedNote.title}</h2>
+                <p style={{ margin: '0 0 16px 0', fontSize: 12, color: '#888' }}>
+                  {formatNoteDate(selectedNote.createdAt)}
+                </p>
+                <p style={{ margin: '0 0 16px 0', whiteSpace: 'pre-wrap' }}>{selectedNote.content}</p>
 
-                {note.images && note.images.length > 0 && (
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-                    {note.images.map((img, i) => (
-                    <img
-                      key={i}
-                      src={img}
-                      style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 6 }}
-                    />
-                  ))}
-                </div>
-              )}
-
-                <div style={{ display: 'flex', gap: 16 }}>
-                  <button onClick={() => setStudyNote(note)} style={{ fontSize: 12, padding: '2px 6px', background: '#151df5', color: '#f7f4f4', border: 'none', borderRadius: 4 }} >Study</button>
-                  <button onClick={() => startEdit(note)} style={{ fontSize: 12, padding: '2px 6px', background: '#129542', color: '#f7f4f4', border: 'none', borderRadius: 4 }} >Edit</button>
-                  <button onClick={() => handleDelete(note._id)} style={{ fontSize: 12, padding: '2px 6px', background: '#ff4d4d', color: '#f7f4f4', border: 'none', borderRadius: 4 }} >Delete</button>
-                </div>
+                {selectedNote.images && selectedNote.images.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                    {selectedNote.images.map((img, i) => (
+                      <img
+                        key={i}
+                        src={img}
+                        style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 6 }}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
-        ))}
+        )}
+
+        {!addingNote && !selectedNote && (
+          <p style={{ color: '#888' }}>Select a note to view it.</p>
+        )}
       </div>
 
       {studyNote && (

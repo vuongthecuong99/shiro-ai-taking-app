@@ -5,6 +5,7 @@ function Login({ onLogin }) {
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
@@ -35,14 +36,35 @@ function Login({ onLogin }) {
           style={{ width: '100%', padding: 10, marginBottom: 10, boxSizing: 'border-box' }}
           required
         />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={{ width: '100%', padding: 10, marginBottom: 10, boxSizing: 'border-box' }}
-          required
-        />
+        <div style={{ position: 'relative', marginBottom: 10 }}>
+          <input
+            type={showPassword ? 'text' : 'password'}
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{ width: '100%', padding: 10, paddingRight: 40, boxSizing: 'border-box' }}
+            required
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            style={{
+              position: 'absolute',
+              right: 8,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 16,
+              padding: 4,
+              color: '#555'
+            }}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+          >
+            {showPassword ? '🙈' : '👁️'}
+          </button>
+        </div>
         <button type="submit" style={{ width: '100%', padding: 10, marginBottom: 10 }}>
           {isRegister ? 'Sign Up' : 'Log In'}
         </button>

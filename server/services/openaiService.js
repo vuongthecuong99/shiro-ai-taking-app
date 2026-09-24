@@ -14,9 +14,18 @@ function safeParseJSON(raw) {
   }
 }
 
-// Converts stored image paths (e.g. /uploads/abc.jpg) into base64 data URLs
+// Converts stored image paths/URLs into content blocks OpenAI can read.
+// Cloudinary (or any http/https) URLs are passed straight through.
+// Old local paths (e.g. /uploads/abc.jpg) are read from disk and base64-encoded.
 function imagesToContent(imagePaths = []) {
   return imagePaths.map((imgPath) => {
+    if (/^https?:\/\//i.test(imgPath)) {
+      return {
+        type: 'image_url',
+        image_url: { url: imgPath }
+      };
+    }
+
     const filePath = path.join(__dirname, '../', imgPath);
     const fileBuffer = fs.readFileSync(filePath);
     const base64 = fileBuffer.toString('base64');
