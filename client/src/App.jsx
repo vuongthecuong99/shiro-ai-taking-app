@@ -25,6 +25,16 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
   const skipAutosave = useRef(true);
 
+  // ---- Mobile responsive state ----
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [mobilePane, setMobilePane] = useState('albums'); // 'albums' | 'notes' | 'detail'
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('email');
@@ -52,6 +62,24 @@ function App() {
     setEditingNote(null);
     setEditTitle('');
     setEditContent('');
+  };
+
+  // Select an album/category; on mobile, also move to the notes pane
+  const selectCategory = (catId) => {
+    setActiveCategory(catId);
+    if (isMobile) setMobilePane('notes');
+  };
+
+  // Open a note for viewing/editing; on mobile, also move to the detail pane
+  const openNote = (note) => {
+    setSelectedNoteId(note._id);
+    startEdit(note);
+    if (isMobile) setMobilePane('detail');
+  };
+
+  const startNewNote = () => {
+    setAddingNote(!addingNote);
+    if (isMobile) setMobilePane('detail');
   };
 
   useEffect(() => {
@@ -174,9 +202,9 @@ function App() {
 
   const albumColStyle = {
     ...columnBase,
-    width: 170,
+    width: isMobile ? '100%' : 170,
     flexShrink: 0,
-    borderRight: '1px solid #333',
+    borderRight: isMobile ? 'none' : '1px solid #333',
     padding: 20,
     background: '#f5c518',
     color: '#000',
@@ -186,9 +214,9 @@ function App() {
 
   const listColStyle = {
     ...columnBase,
-    width: 300,
+    width: isMobile ? '100%' : 300,
     flexShrink: 0,
-    borderRight: '1px solid #ddd',
+    borderRight: isMobile ? 'none' : '1px solid #ddd',
     padding: 20,
     background: '#f7f7f7',
     color: '#000'
@@ -196,10 +224,21 @@ function App() {
 
   const detailColStyle = {
     ...columnBase,
-    flex: 1,
-    padding: 30,
+    flex: isMobile ? 'none' : 1,
+    width: isMobile ? '100%' : 'auto',
+    padding: isMobile ? 20 : 30,
     background: '#fff',
     color: '#000'
+  };
+
+  const backBtnStyle = {
+    background: 'none',
+    border: 'none',
+    color: '#151df5',
+    fontSize: 15,
+    cursor: 'pointer',
+    padding: 0,
+    marginBottom: 14
   };
 
   const albumItemStyle = (active) => ({
@@ -224,11 +263,7 @@ function App() {
   const formatNoteDate = (dateStr) => {
     const d = new Date(dateStr);
     return d.toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
+      month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
     });
   };
 
@@ -251,7 +286,6 @@ function App() {
     const now = new Date();
     const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const dayDiff = Math.floor((startOfDay(now) - startOfDay(d)) / (1000 * 60 * 60 * 24));
-
     if (dayDiff === 0) return 'Today';
     if (dayDiff === 1) return 'Yesterday';
     if (dayDiff <= 7) return 'Previous 7 Days';
@@ -271,293 +305,147 @@ function App() {
     ...Object.keys(groupedNotes).filter((g) => !groupOrder.includes(g))
   ];
 
+  const showAlbums = !isMobile || mobilePane === 'albums';
+  const showList = !isMobile || mobilePane === 'notes';
+  const showDetail = !isMobile || mobilePane === 'detail';
+
   return (
     <div style={pageStyle}>
       {/* COLUMN 1: ALBUMS */}
-      <div style={albumColStyle}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
-          <h2 style={{ fontSize: 18, margin: 0, color: '#000' }}>Shiro Notes</h2>
-          <button onClick={() => setAddingCategory(!addingCategory)} style={{ fontSize: 15, padding: '2px 6px', background: '#129542', color: '#f7f4f4', border: 'none', borderRadius: 4 }} >+</button>
-        </div>
-
-        {addingCategory && (
-          <form onSubmit={handleAddCategory} style={{ marginBottom: 15 }}>
-            <input
-              type="text"
-              placeholder="New album name"
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
-              autoFocus
-              style={{ width: '100%', padding: 6, marginBottom: 5, boxSizing: 'border-box' }}
-            />
-            <button type="submit" style={{ width: '100%' }}>Create</button>
-          </form>
-        )}
-
-        <div style={albumItemStyle(activeCategory === null)} onClick={() => setActiveCategory(null)}>
-          <span>All Notes</span>
-        </div>
-
-        {categories.map((c) => (
-          <div key={c._id} style={albumItemStyle(activeCategory === c._id)} onClick={() => setActiveCategory(c._id)}>
-            <span>{c._id}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ color: '#888' }}>{c.count}</span>
-              <button onClick={(e) => handleDeleteCategory(c._id, e)} style={{ fontSize: 12, padding: '2px 6px', background: '#f40c0c', color: '#f7f4f4', border: 'none', borderRadius: 4 }}>
-                ✕
-              </button>
-            </span>
+      {showAlbums && (
+        <div style={albumColStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+            <h2 style={{ fontSize: 18, margin: 0, color: '#000' }}>Shiro Notes</h2>
+            <button onClick={() => setAddingCategory(!addingCategory)} style={{ fontSize: 15, padding: '2px 6px', background: '#129542', color: '#f7f4f4', border: 'none', borderRadius: 4 }} >+</button>
           </div>
-        ))}
-
-        <button onClick={handleLogout} style={{ width: '100%', fontSize: 13, padding: '4px 6px', background: '#444', color: '#fff', border: 'none', borderRadius: 4, marginTop: 'auto', cursor: 'pointer' }}>Log Out</button>
-      </div>
-
-      {/* COLUMN 2: NOTE LIST */}
-      <div style={listColStyle}>
-        <div style={{ marginBottom: 12 }}>
-          <h2 style={{ margin: '0 0 2px 0', fontSize: 20, color: '#000' }}>
-            {isSearching ? `Results for "${searchQuery}"` : (activeCategory ? activeCategory : 'All Notes')}
-          </h2>
-          <p style={{ margin: 0, fontSize: 12, color: '#888' }}>{displayedNotes.length} note{displayedNotes.length !== 1 ? 's' : ''}</p>
-        </div>
-
-        <input
-          type="text"
-          placeholder="Search all notes..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ display: 'block', width: '100%', padding: 8, marginBottom: 12, borderRadius: 6, border: '1px solid #ccc', boxSizing: 'border-box' }}
-        />
-
-        {activeCategory && (
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <button onClick={() => setAddingNote(!addingNote)} style={{ fontSize: 13, padding: '4px 8px', background: '#129542', color: '#f7f4f4', border: 'none', borderRadius: 4, cursor: 'pointer' }}>+ New Note</button>
-            {notes.length > 0 && (
-              <button onClick={() => setStudyingAlbum(true)} style={{ fontSize: 13, padding: '4px 8px', background: '#151df5', color: '#f7f4f4', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Study All</button>
-            )}
+          {addingCategory && (
+            <form onSubmit={handleAddCategory} style={{ marginBottom: 15 }}>
+              <input type="text" placeholder="New album name" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} autoFocus style={{ width: '100%', padding: 6, marginBottom: 5, boxSizing: 'border-box' }} />
+              <button type="submit" style={{ width: '100%' }}>Create</button>
+            </form>
+          )}
+          <div style={albumItemStyle(activeCategory === null)} onClick={() => selectCategory(null)}>
+            <span>All Notes</span>
           </div>
-        )}
-
-        {!activeCategory && !isSearching && (
-          <p style={{ color: '#888', fontSize: 13, marginBottom: 12 }}>
-            Select an album, or view all notes here.
-          </p>
-        )}
-
-        {displayedNotes.length === 0 && (
-          <p style={{ color: '#888', fontSize: 13 }}>
-            {isSearching ? 'No notes match your search.' : 'No notes here yet.'}
-          </p>
-        )}
-
-        {orderedGroupNames.map((groupName) => (
-          <div key={groupName}>
-            <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, margin: '14px 0 6px' }}>
-              {groupName}
+          {categories.map((c) => (
+            <div key={c._id} style={albumItemStyle(activeCategory === c._id)} onClick={() => selectCategory(c._id)}>
+              <span>{c._id}</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ color: '#888' }}>{c.count}</span>
+                <button onClick={(e) => handleDeleteCategory(c._id, e)} style={{ fontSize: 12, padding: '2px 6px', background: '#f40c0c', color: '#f7f4f4', border: 'none', borderRadius: 4 }}>✕</button>
+              </span>
             </div>
-            {groupedNotes[groupName].map((note) => (
-              <div
-                key={note._id}
-                onClick={() => {
-                  setSelectedNoteId(note._id);
-                  startEdit(note);
-                }}
-                style={{
-                  padding: '10px 10px',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                  marginBottom: 6,
-                  background: selectedNoteId === note._id ? '#e6e6e6' : '#fff',
-                  border: '1px solid #e0e0e0'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ fontWeight: 'bold', fontSize: 14, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
-                    {note.title}
-                  </div>
-                  <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginLeft: 6 }}>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setStudyNote(note); }}
-                      title="Study"
-                      style={{ fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
-                    >📖</button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(note._id); }}
-                      title="Delete"
-                      style={{ fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
-                    >🗑️</button>
-                  </div>
-                </div>
-                <div style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {formatTime(note.createdAt)}{'  '}{getPreview(note.content)}
-                </div>
-                {!activeCategory && (
-                  <div style={{ fontSize: 11, color: '#999', marginTop: 3 }}>
-                    📁 {note.category}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-
-      {/* COLUMN 3: NOTE DETAIL */}
-      <div style={detailColStyle}>
-        {addingNote && activeCategory && (
-          <form onSubmit={handleCreate} style={{ marginBottom: 30 }}>
-            <input
-              type="text"
-              placeholder="Title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              autoFocus
-              style={{ display: 'block', width: '100%', marginBottom: 10, padding: 8, boxSizing: 'border-box' }}
-            />
-            <textarea
-              placeholder="Write your note..."
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={4}
-              style={{ display: 'block', width: '100%', marginBottom: 10, padding: 8, boxSizing: 'border-box' }}
-            />
-
-            <label
-              htmlFor="photo-upload"
-              style={{
-                display: 'inline-block',
-                width: 120,
-                textAlign: 'center',
-                padding: '4px 10px',
-                fontSize: 14,
-                background: '#444',
-                color: '#fff',
-                borderRadius: 6,
-                cursor: 'pointer',
-                marginBottom: 10,
-                marginRight: 20
-              }}
-            >
-              Uploads Photo
-            </label>
-            <input
-              id="photo-upload"
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={(e) => setSelectedFiles(Array.from(e.target.files))}
-              style={{ display: 'none' }}
-            />
-            {selectedFiles.length > 0 && (
-              <div style={{ marginBottom: 10 }}>
-                <p style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
-                  {selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} selected
-                </p>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {selectedFiles.map((file, i) => (
-                    <img
-                      key={i}
-                      src={URL.createObjectURL(file)}
-                      alt=""
-                      style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 6 }}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-            <button
-              type="submit"
-              style={{
-                width: 120,
-                textAlign: 'center',
-                fontSize: 14,
-                padding: '4px 10px',
-                background: '#129542',
-                color: '#f7f4f4',
-                border: 'none',
-                borderRadius: 6
-              }}
-            >Add Note
-            </button>
-          </form>
-        )}
-
-        {!addingNote && selectedNote && (
-          <div>
-            {editingNote === selectedNote._id ? (
-              <div>
-                <input
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  style={{ display: 'block', width: '100%', marginBottom: 8, padding: 8, borderRadius: 6, boxSizing: 'border-box', background: '#fff', color: '#000', border: 'none', outline: 'none', fontSize: 22, fontWeight: 'bold' }}
-                />
-                <textarea
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  rows={4}
-                  style={{ display: 'block', width: '100%', marginBottom: 8, padding: 8, borderRadius: 6, boxSizing: 'border-box', minHeight: 300, resize: 'vertical', background: '#fff', color: '#000', border: 'none', outline: 'none', fontSize: 15, fontFamily: 'inherit' }}
-                />
-                {selectedNote.images && selectedNote.images.length > 0 && (
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-                    {selectedNote.images.map((img, i) => (
-                      <img
-                        key={i}
-                        src={img}
-                        style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 6 }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div>
-                <h2 style={{ margin: '0 0 4px 0', color: '#000' }}>{selectedNote.title}</h2>
-                <p style={{ margin: '0 0 16px 0', fontSize: 12, color: '#888' }}>
-                  {formatNoteDate(selectedNote.createdAt)}
-                </p>
-                <p style={{ margin: '0 0 16px 0', whiteSpace: 'pre-wrap' }}>{selectedNote.content}</p>
-
-                {selectedNote.images && selectedNote.images.length > 0 && (
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-                    {selectedNote.images.map((img, i) => (
-                      <img
-                        key={i}
-                        src={img}
-                        style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 6 }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {!addingNote && !selectedNote && (
-          <p style={{ color: '#888' }}>Select a note to view it.</p>
-        )}
-      </div>
-
-      {studyNote && (
-        <StudyModal
-          note={studyNote}
-          onClose={() => setStudyNote(null)}
-          onUpdate={(updated) => {
-            setStudyNote(updated);
-            loadCategories();
-            loadNotes(activeCategory);
-          }}
-        />
+          ))}
+          <button onClick={handleLogout} style={{ width: '100%', fontSize: 13, padding: '4px 6px', background: '#444', color: '#fff', border: 'none', borderRadius: 4, marginTop: 'auto', cursor: 'pointer' }}>Log Out</button>
+        </div>
       )}
 
+      {/* COLUMN 2: NOTE LIST */}
+      {showList && (
+        <div style={listColStyle}>
+          {isMobile && (
+            <button onClick={() => setMobilePane('albums')} style={backBtnStyle}>‹ Albums</button>
+          )}
+          <div style={{ marginBottom: 12 }}>
+            <h2 style={{ margin: '0 0 2px 0', fontSize: 20, color: '#000' }}>
+              {isSearching ? `Results for "${searchQuery}"` : (activeCategory ? activeCategory : 'All Notes')}
+            </h2>
+            <p style={{ margin: 0, fontSize: 12, color: '#888' }}>{displayedNotes.length} note{displayedNotes.length !== 1 ? 's' : ''}</p>
+          </div>
+          <input type="text" placeholder="Search all notes..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ display: 'block', width: '100%', padding: 8, marginBottom: 12, borderRadius: 6, border: '1px solid #ccc', boxSizing: 'border-box' }} />
+          {activeCategory && (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <button onClick={startNewNote} style={{ fontSize: 13, padding: '4px 8px', background: '#129542', color: '#f7f4f4', border: 'none', borderRadius: 4, cursor: 'pointer' }}>+ New Note</button>
+              {notes.length > 0 && (
+                <button onClick={() => setStudyingAlbum(true)} style={{ fontSize: 13, padding: '4px 8px', background: '#151df5', color: '#f7f4f4', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Study All</button>
+              )}
+            </div>
+          )}
+          {!activeCategory && !isSearching && (
+            <p style={{ color: '#888', fontSize: 13, marginBottom: 12 }}>Select an album, or view all notes here.</p>
+          )}
+          {displayedNotes.length === 0 && (
+            <p style={{ color: '#888', fontSize: 13 }}>{isSearching ? 'No notes match your search.' : 'No notes here yet.'}</p>
+          )}
+          {orderedGroupNames.map((groupName) => (
+            <div key={groupName}>
+              <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, margin: '14px 0 6px' }}>{groupName}</div>
+              {groupedNotes[groupName].map((note) => (
+                <div key={note._id} onClick={() => openNote(note)} style={{ padding: '10px 10px', borderRadius: 8, cursor: 'pointer', marginBottom: 6, background: selectedNoteId === note._id ? '#e6e6e6' : '#fff', border: '1px solid #e0e0e0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ fontWeight: 'bold', fontSize: 14, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{note.title}</div>
+                    <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginLeft: 6 }}>
+                      <button onClick={(e) => { e.stopPropagation(); setStudyNote(note); }} title="Study" style={{ fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>📖</button>
+                      <button onClick={(e) => { e.stopPropagation(); handleDelete(note._id); }} title="Delete" style={{ fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>🗑️</button>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatTime(note.createdAt)}{'  '}{getPreview(note.content)}</div>
+                  {!activeCategory && (<div style={{ fontSize: 11, color: '#999', marginTop: 3 }}>📁 {note.category}</div>)}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* COLUMN 3: NOTE DETAIL */}
+      {showDetail && (
+        <div style={detailColStyle}>
+          {isMobile && (
+            <button onClick={() => setMobilePane('notes')} style={backBtnStyle}>‹ Notes</button>
+          )}
+          {addingNote && activeCategory && (
+            <form onSubmit={handleCreate} style={{ marginBottom: 30 }}>
+              <input type="text" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus style={{ display: 'block', width: '100%', marginBottom: 10, padding: 8, boxSizing: 'border-box' }} />
+              <textarea placeholder="Write your note..." value={content} onChange={(e) => setContent(e.target.value)} rows={4} style={{ display: 'block', width: '100%', marginBottom: 10, padding: 8, boxSizing: 'border-box' }} />
+              <label htmlFor="photo-upload" style={{ display: 'inline-block', width: 120, textAlign: 'center', padding: '4px 10px', fontSize: 14, background: '#444', color: '#fff', borderRadius: 6, cursor: 'pointer', marginBottom: 10, marginRight: 20 }}>Uploads Photo</label>
+              <input id="photo-upload" type="file" accept="image/*" multiple onChange={(e) => setSelectedFiles(Array.from(e.target.files))} style={{ display: 'none' }} />
+              {selectedFiles.length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                  <p style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>{selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} selected</p>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {selectedFiles.map((file, i) => (<img key={i} src={URL.createObjectURL(file)} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 6 }} />))}
+                  </div>
+                </div>
+              )}
+              <button type="submit" style={{ width: 120, textAlign: 'center', fontSize: 14, padding: '4px 10px', background: '#129542', color: '#f7f4f4', border: 'none', borderRadius: 6 }}>Add Note</button>
+            </form>
+          )}
+          {!addingNote && selectedNote && (
+            <div>
+              {editingNote === selectedNote._id ? (
+                <div>
+                  <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} style={{ display: 'block', width: '100%', marginBottom: 8, padding: 8, borderRadius: 6, boxSizing: 'border-box', background: '#fff', color: '#000', border: 'none', outline: 'none', fontSize: 22, fontWeight: 'bold' }} />
+                  <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={4} style={{ display: 'block', width: '100%', marginBottom: 8, padding: 8, borderRadius: 6, boxSizing: 'border-box', minHeight: 300, resize: 'vertical', background: '#fff', color: '#000', border: 'none', outline: 'none', fontSize: 15, fontFamily: 'inherit' }} />
+                  {selectedNote.images && selectedNote.images.length > 0 && (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                      {selectedNote.images.map((img, i) => (<img key={i} src={img} style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 6 }} />))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <h2 style={{ margin: '0 0 4px 0', color: '#000' }}>{selectedNote.title}</h2>
+                  <p style={{ margin: '0 0 16px 0', fontSize: 12, color: '#888' }}>{formatNoteDate(selectedNote.createdAt)}</p>
+                  <p style={{ margin: '0 0 16px 0', whiteSpace: 'pre-wrap' }}>{selectedNote.content}</p>
+                  {selectedNote.images && selectedNote.images.length > 0 && (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                      {selectedNote.images.map((img, i) => (<img key={i} src={img} style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 6 }} />))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          {!addingNote && !selectedNote && (<p style={{ color: '#888' }}>Select a note to view it.</p>)}
+        </div>
+      )}
+
+      {studyNote && (
+        <StudyModal note={studyNote} onClose={() => setStudyNote(null)} onUpdate={(updated) => { setStudyNote(updated); loadCategories(); loadNotes(activeCategory); }} />
+      )}
       {studyingAlbum && (
-        <AlbumStudyModal
-          categoryName={activeCategory}
-          notes={notes}
-          onClose={() => setStudyingAlbum(false)}
-        />
+        <AlbumStudyModal categoryName={activeCategory} notes={notes} onClose={() => setStudyingAlbum(false)} />
       )}
     </div>
   );
